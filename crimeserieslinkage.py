@@ -4,6 +4,8 @@ Statistical methods for identifying serial crimes and related offenders
 
 Copyright (c) 2022, A.A. Bessonov (bestallv@mail.ru)
 
+version 2.0
+
 Routines in this module:
 
 clusterPath(crimeID,tree,n=0)
@@ -17,7 +19,6 @@ crimeCount(seriesdata)
 crimeLink(crimedata, varlist, estimateBF, sort=True)
 crimeLink_Clust_Hier(crimedata, predGB, linkage)
 datapreprocess(data)
-difftime(t1, t2)
 euclid_distance(x, y)
 expAbsDiff(day_x, day_y, L1, L2, pairsdata)
 expAbsDiffcirc(X, Y, mod = 24, n = 2000, method='convolution')
@@ -30,13 +31,12 @@ getD(y, X, mod=24)
 getROC(f, y)
 graphDataFrame(edges, directed=True, vertices=None, use_vids=False)
 haversine(x, y)
-julian_date(date)
 makebreaks(x, mode='quantile', nbins='NULL', binwidth='NULL')
 makeGroups(X, method=1)
 makeLinked(X, crimedata, valtime=365)
-makePairs(X, crimedata, method=1, valtime=365)
+makePairs(X, crimedata, method=1, valtime=365, samplepairs='random', m=40)
 makeSeriesData(crimedata, offenderTable, time='early')
-makeUnlinked(X, crimedata, method=1, valtime=365)
+makeUnlinked(X, crimedata, method=1, valtime=365, samplepairs='random', m=40)
 naiveBayes(data, var, partition='quantile', df=20, nbins=30)
 naiveBayesfit(X, y, weights=None, partition='quantile', df=20, nbins=30)
 plot_hcc(Z, labels, **kwargs)
@@ -55,9 +55,9 @@ from __future__ import division, absolute_import, print_function
 
 __all__ = ['clusterPath', 'compareCrimes', 'compareSpatial', 'compareTemporal', 'comparisonCrime',
            'conv_circ', 'crimeClust_Hier', 'crimeCount', 'crimeLink', 'crimeLink_Clust_Hier',
-           'datapreprocess','difftime', 'euclid_distance', 'expAbsDiff',
+           'datapreprocess', 'euclid_distance', 'expAbsDiff',
            'expAbsDiffcirc', 'GBC', 'getBF', 'getCrimes', 'getCrimeSeries',
-           'getCriminals', 'getD', 'getROC', 'graphDataFrame', 'haversine', 'julian_date',
+           'getCriminals', 'getD', 'getROC', 'graphDataFrame', 'haversine',
            'makebreaks', 'makeGroups','makeLinked', 'makePairs',
            'makeSeriesData', 'makeUnlinked', 'naiveBayes', 'naiveBayesfit',
            'plot_hcc', 'plotBF', 'plotHCL', 'plotROC', 'predictBF',
@@ -79,7 +79,6 @@ from sklearn.model_selection import train_test_split
 from heapq import nlargest
 from more_itertools import distinct_combinations
 from itertools import combinations
-from itertools import combinations_with_replacement
 from scipy.cluster import hierarchy
 from scipy.cluster.hierarchy import dendrogram
 import matplotlib.pyplot as plt
@@ -165,6 +164,7 @@ def clusterPath(crimeID,tree,n=0):
     Dff=finelDF(DFF)
     Dff.index += 1
     print(Dff)
+    return Dff
     if Dff.shape[0]==0:
         print("Change the value -n-")
 
@@ -191,21 +191,17 @@ def compareCrimes(dfPairs, crimedata, varlist, longlat=False, method='convolutio
         cat=varlist['categorical']
         temp=varlist['temporal']
         spat=varlist['spatial']
-        Pairs = pd.merge(dfPairs, crimedata, left_on=['i1'], right_on=['crimeID'], how='left')
-        i1spat=Pairs[spat]
-        i1temp=Pairs[temp]
-        i1cat=Pairs[cat]
-        Pairs.drop(Pairs.iloc[:,3:], axis=1, inplace=True)
-        Pairs = pd.merge(dfPairs, crimedata, left_on=['i2'], right_on=['crimeID'], how='left')
-        i2spat=Pairs[spat]
-        i2temp=Pairs[temp]
-        i2cat=Pairs[cat]
-        Pairs.drop(Pairs.iloc[:,3:], axis=1, inplace=True)
-        Pairs=Pairs
-        TTD=compareTemporal((i1temp['DT.FROM'],i1temp['DT.TO']),(i2temp['DT.FROM'],i2temp['DT.TO']),Pairs,method=method)
-        TTS=compareSpatial((i1spat['X'],i1spat['Y']),(i2spat['X'],i2spat['Y']),Pairs,longlat=longlat)
+        i1spat = pd.merge(dfPairs[['i1']], crimedata[['crimeID']+spat], left_on=['i1'], right_on=['crimeID'], how='left')[spat]
+        i2spat = pd.merge(dfPairs[['i2']], crimedata[['crimeID']+spat], left_on=['i2'], right_on=['crimeID'], how='left')[spat]
+        i1temp = pd.merge(dfPairs[['i1']], crimedata[['crimeID']+temp], left_on=['i1'], right_on=['crimeID'], how='left')[temp]
+        i2temp = pd.merge(dfPairs[['i2']], crimedata[['crimeID']+temp], left_on=['i2'], right_on=['crimeID'], how='left')[temp]
+        i1cat = pd.merge(dfPairs[['i1']], crimedata[['crimeID']+cat], left_on=['i1'], right_on=['crimeID'], how='left')[cat]
+        i2cat = pd.merge(dfPairs[['i2']], crimedata[['crimeID']+cat], left_on=['i2'], right_on=['crimeID'], how='left')[cat]
+        TTD=compareTemporal(i1temp,i2temp,dfPairs,method=method)
+        TTS=compareSpatial((i1spat['X'],i1spat['Y']),(i2spat['X'],i2spat['Y']),dfPairs,longlat=longlat)
+        TTS=pd.DataFrame(TTS,columns=['spatial'],dtype='float64')
         TTC=pd.DataFrame(np.where(i1cat == i2cat, 1, 0),columns=cat)
-        Edf=pd.concat([Pairs,TTS,TTD,TTC],axis=1)
+        Edf=pd.concat([dfPairs,TTS,TTD,TTC],axis=1)
         Edf=Edf.fillna(0)
         return Edf
     else:
@@ -215,80 +211,67 @@ def compareCrimes(dfPairs, crimedata, varlist, longlat=False, method='convolutio
 def compareSpatial(C1, C2, pairsdata, longlat='False'):
     """
     Make spatial evidence variables.
-    
+
     Calculates spatial distance between crimes (in km)
-    
+
     Parameters
     ----------
     C1 : [DataFrame] dateframe with 2 columns of coordinates for the crimes.
     C2 : [DataFrame] dateframe with 2 columns of coordinates for the crimes.
     pairsdata : [DataFrame] dataframe of crime groups from crime series data.
     longlat : [bool, default False] if false (default) the the coordinates are in (Long,Lat), else assume a suitable project where euclidean distance can be applied.
-    
+
     Returns
     ----------
     numeric vector of distances between the crimes (in km) internal.
     """    
-    for spatial in pairsdata:
-        spatial=[]
-        for i in range(max(pairsdata.index)+1):
+    spatial=np.zeros(pairsdata.shape[0], dtype=np.float32)
+    for i in range(pairsdata.shape[0]):
             if longlat:
-                d=haversine((C1[0][i],C1[1][i]),(C2[0][i],C2[1][i]))
-                spatial.append(d)
+                spatial[i]=haversine((C1[0][i],C1[1][i]),(C2[0][i],C2[1][i]))
             else:
-                d=euclid_distance((C1[0][i],C1[1][i]),(C2[0][i],C2[1][i]))
-                spatial.append(d)
-    TableTTS=pd.DataFrame({'spatial':spatial})
-    return TableTTS
+                spatial[i]=euclid_distance((C1[0][i],C1[1][i]),(C2[0][i],C2[1][i]))
+    return spatial
 
 
 def compareTemporal(DT1, DT2, pairsdata, method='convolution'):
     """
     Make temporal evidence variable from (possibly uncertain) temporal.
-    
+
     Calculates the temporal distance between crimes
-    
+
     Parameters
     ----------
     DT1 : [DataFrame] dataframe of (DT.FROM,DT.TO) for the crimes.
     DT2 : [DataFrame] dataframe of (DT.FROM,DT.TO) for the crimes.
     pairsdata : [DataFrame] dataframe of crime groups from crime series data.
     method : [str] use convolution (default) or monte carlo integration (method='numerical').
-    
+
     Returns
     ----------
     dataframe of expected absolute differences: temporal - overall difference (in days)  [0,max], tod - time of day difference (in hours)  [0,12], dow - fractional day of week difference (in days) [0,3.5].
     """
-    def TOD(x):
-        tod=x.timestamp()/3600%24
-        return tod
-    def DOW(x):
-        dow=(x.timestamp()/(3600*24))%7
-        return dow
-    vectdifftime = np.vectorize(difftime,otypes=[np.float],cache=False)
-    L1 = vectdifftime(DT1[1],DT1[0])
-    L2 = vectdifftime(DT2[1],DT2[0])
-    vectjulian_date = np.vectorize(julian_date,otypes=[np.float],cache=False)
-    day1=vectjulian_date(DT1[0])
-    day2=vectjulian_date(DT2[0])
-    vectTOD=np.vectorize(TOD,otypes=[np.float],cache=False)
-    tod1=vectTOD(DT1[0])
-    tod2=vectTOD(DT2[0])
-    vectDOW=np.vectorize(DOW,otypes=[np.float],cache=False)
-    dow1=vectDOW(DT1[0])
-    dow2=vectDOW(DT2[0])
-    temporal=expAbsDiff(day1, day2, L1, L2,pairsdata)
-    for tod in pairsdata:
-        tod=[]
-    for i in list(range(max(pairsdata.index)+1)):
-        todi=expAbsDiffcirc((tod1[i],tod1[i]+L1[i]), (tod2[i],tod2[i]+L2[i]),method=method)
-        tod.append(todi)
-    for dow in pairsdata:
-        dow=[]
-    for i in list(range(max(pairsdata.index)+1)):
-        dowi=expAbsDiffcirc((dow1[i],dow1[i]+L1[i]/24), (dow2[i],dow2[i]+L2[i]/24),mod=7,method=method)
-        dow.append(dowi)
-    TableTTD=pd.DataFrame({'temporal':temporal,'tod':tod,'dow':dow})
+    L1=np.array(abs(DT1['DT.TO']-DT1['DT.FROM'])/np.timedelta64(1, 'h'),dtype=np.float32)
+    L2=np.array(abs(DT2['DT.TO']-DT2['DT.FROM'])/np.timedelta64(1, 'h'),dtype=np.float32)
+    day1=(DT1['DT.FROM']-pd.Timestamp("1970-01-01")).dt.days
+    day2=(DT2['DT.FROM']-pd.Timestamp("1970-01-01")).dt.days
+    tod1=day1/3600%24
+    tod2=day2/3600%24
+    dow1=day1/(3600*24)%7
+    dow2=day2/(3600*24)%7
+    day1=day1.to_numpy()
+    day2=day2.to_numpy()
+    tod1=tod1.to_numpy()
+    tod2=tod2.to_numpy()
+    dow1=dow1.to_numpy()
+    dow2=dow2.to_numpy()
+    temporal=expAbsDiff(day1, day2, L1, L2, pairsdata)
+    tod=np.zeros(pairsdata.shape[0], dtype=np.float32)
+    dow=np.zeros(pairsdata.shape[0], dtype=np.float32)
+    for i in range(pairsdata.shape[0]):
+        tod[i]=expAbsDiffcirc((tod1[i],tod1[i]+L1[i]), (tod2[i],tod2[i]+L2[i]),method=method)
+        dow[i]=expAbsDiffcirc((dow1[i],dow1[i]+L1[i]/24),(dow2[i],dow2[i]+L2[i]/24),mod=7,method=method)
+    TableTTD=pd.DataFrame({'temporal':temporal,'tod':tod,'dow':dow},dtype='float64')
     return TableTTD
 
 
@@ -305,7 +288,6 @@ def comparisonCrime(crimedata, crimeID):
     ----------
     Dataframe of certain crimes.
     """
-    
     res=crimedata[crimedata['crimeID'].isin(crimeID)]
     return res
 
@@ -330,16 +312,16 @@ def conv_circ(x, y):
 def crimeClust_Hier(crimedata, varlist, estimateBF, linkage):
     """
     Agglomerative Hierarchical Crime Series Clustering.
-    
+
     Run hierarchical clustering on a set of crimes using the log Bayes Factor as the similarity metric
-    
+
     Parameters
     ----------
     crimedata : [DataFrame] dataframe of crime incidents. Must contain a column named crimeID.
     varlist : [dict] a list of the variable names columns of crimedata used to create evidence variables with compareCrimes.
     estimateBF : [function] function to estimate the log bayes factor from evidence variables.
     linkage : [str] the type of linkage for hierarchical clustering: 'average' - uses the average bayes factor, 'single' - uses the largest bayes factor (most similar), 'complete' - uses the smallest bayes factor (least similar), 'weighted' - a balanced group average (also called WPGMA), 'centroid' - unweighted pair group method using centroids (also called UPGMC), 'median' - the centroid of the new cluster is accepted as the average value of the centrides of two combined clusters (WPGMC algorithm), 'ward' - uses the Ward variance minimization algorithm.
-    
+
     Returns
     ----------
     The hierarchical clustering encoded as a linkage matrix based on log Bayes Factor.
@@ -349,7 +331,7 @@ def crimeClust_Hier(crimedata, varlist, estimateBF, linkage):
     crimesID : a list of crimeID used to return a linkage matrix based on log Bayes Factor.
     offsets : maximum of the log bayes factor.
     """
-    crimeIDs=set(crimedata['crimeID'])
+    crimeIDs=crimedata.crimeID.unique()
     allPairs=pd.DataFrame(list(combinations(crimeIDs, 2)),columns=['i1', 'i2'])
     A=compareCrimes(allPairs,crimedata,varlist=varlist)
     bf=estimateBF(A)
@@ -385,16 +367,16 @@ def crimeCount(seriesdata):
 def crimeLink(crimedata, varlist, estimateBF, sort=True):
     """
     Links between crime pairs based on log Bayes Factor.
-    
+
     Make a dataframe of links between crime pairs based on log Bayes Factor
-    
+
     Parameters
     ----------
     crimedata : [DataFrame] dataframe of crime incidents. Must contain a column named crimeID.
     varlist : [dict] a list of the variable names columns of crimedata used to create evidence variables with compareCrimes.
     estimateBF : [function] function to estimate the log bayes factor from evidence variables.
     sort : [bool, default True] sort data of columnes based on log Bayes Factor in descending (sort=True, default) or ascending order.
-    
+
     Returns
     ----------
     A dataframe of links between crime pairs based on log Bayes Factor.
@@ -479,24 +461,6 @@ def datapreprocess(data):
     return data
 
 
-def difftime(t1, t2):
-    """
-    Calculates time between two vectors of datetimes.
-    
-    Parameters
-    ----------
-    t1 : [datetime64, datetime, Timestamp] first set of times.
-    t2 : [datetime64, datetime, Timestamp] second set of times.
-    
-    Returns
-    ----------
-    Numeric vector of times between the datetime objects.
-    """
-    times=abs(t1-t2)
-    hours=(times.total_seconds())//3600
-    return hours
-
-
 def euclid_distance(x, y):
     """
     Сalculates the Euclidean distance between two geographic coordinates
@@ -517,9 +481,9 @@ def euclid_distance(x, y):
 def expAbsDiff(day_x, day_y, L1, L2, pairsdata):
     """
     Expected absolute difference between the two dates of the crime pairs, expressed in days of the week.
-    
+
     Calculates the expected absolute difference of two uniform two dates of the crime pairs, expressed in days of the week
-    
+
     Parameters
     ----------
     day_x : [tuple: float, int] a list of two values - Julian minimum day of the week and Julian maximum day of the week of the first crime in the pair.
@@ -527,7 +491,7 @@ def expAbsDiff(day_x, day_y, L1, L2, pairsdata):
     L1 : [float, int] difference in hours between two dates of the first crime (DT.FROM and DT.TO).
     L2 : [float, int] difference in hours between two dates of the second crime (DT.FROM and DT.TO).
     pairsdata : dataframe of crime groups from crime series data.
-    
+
     Returns
     ----------
     The expected absolute difference between the two dates of the crime pairs, expressed in days of the week.
@@ -567,9 +531,9 @@ def expAbsDiff(day_x, day_y, L1, L2, pairsdata):
         if Sx1>Sy1:
             px=sz*[1,1,1]/Sxx
             return ((mids[1]-mids[0])*px[0]+(sz[1]/3)*px[1]+(mids[2]-mids[1])*px[2])
-    for i in list(range(max(pairsdata.index)+1)):
-        temporali=expAbsDiff2(day_x[i],day_y[i])
-        temporal.append(temporali)
+    temporal=np.zeros(pairsdata.shape[0], dtype=np.float32)
+    for i in range(pairsdata.shape[0]):
+        temporal[i]=expAbsDiff2(day_x[i],day_y[i])
     return temporal
 
 
@@ -1050,30 +1014,6 @@ def haversine(x, y):
     return s
 
 
-def julian_date(date):
-    """
-    Extract the weekday on the Julian time.
-    
-    Parameters
-    ----------
-    date : [datetime64, datetime, Timestamp] object representing date of the crime.
-    
-    Returns
-    ----------
-    Returns the number of days (possibly fractional) since the origin.
-    
-    Notes
-    ----------
-    Julian Day Number is the number of days since noon UTC on the first day of 4317 BC.
-    """
-    julian_datetime = (367 * date.year - int((7 * (date.year + int((date.month + 9) / 12.0))) / 4.0) + int(
-        (275 * date.month) / 9.0) + date.day + 1721013.5 + (
-                          date.hour + date.minute / 60.0 + date.second / math.pow(60,
-                                                                                  2)) / 24.0 - 0.5 * math.copysign(
-        1, 100 * date.year + date.month - 190002.5) + 0.5)-2440587.5
-    return round(julian_datetime,3)
-
-
 def makebreaks(x, mode='quantile', nbins='NULL', binwidth='NULL'):
     """
     Make break points for binning continuous predictors.
@@ -1240,33 +1180,36 @@ def makeLinked(X, crimedata, valtime=365):
     return my_df
 
 
-def makePairs(X, crimedata, method=1, valtime=365):
+def makePairs(X, crimedata, method=1, valtime=365, samplepairs='random', m=40):
     """
     Generates indices of linked and unlinked crime pairs (with weights).
-    
+
     These functions generate a set of crimeIDs for linked and unlinked crime pairs. Linked pairs are assigned a weight according to how many crimes are in the crime series. For unlinked pairs, crimes are selected from each crime group and pairs them with crimes in other crime groups.
-    
+
     Parameters
     ----------
     X : [DataFrame] crime series data, generated from makeSeriesData with offender IDs, crime IDs and the event datetime.
     crimedata : [DataFrame] dataframe of crime incidents.
     method : [int, default 1] method forms crimes groups: Method=1 forms groups by finding the maximal connected offender subgraph. Method=2 forms groups from the unique group of co-offenders. Method=3 forms from groups from offenderIDs.
     valtime : [int] the threshold (in days) of allowable time distance (default valtime=365).
+    samplepairs : [str] the method of forming the unlinked crime pairs: 'random' randomly (default) or 'full' a complete set.
+    m : [int] the number of samples from each crime group for unlinked pairs (default m=40)
 
     Returns
     ----------
     Dataframe of indices of crime pairs with weights. The last column 'type' indicates if the crime pair is linked or unlinked.
-    
+
     Notes
     ----------
     Method=1 forms groups by finding the maximal connected offender subgraph. So if two offenders have ever co-offended, then all of their crimes are assigned to the same group. Method=2 forms groups from the unique group of co-offenders. So for two offenders who co-offended, all the co-offending crimes are in one group and any crimes committed individually or with other offenders are assigned to another group. Method=3 forms groups from the offender(s) responsible. So a crime that is committed by multiple people will be assigned to multiple groups.
     makePairs is a Convenience function that calls makeLinked and makeUnlinked and combines the results.
     """
     linkedPairs=makeLinked(X=X, crimedata=crimedata, valtime=valtime)
-    unlinkedPairs=makeUnlinked(X=X, crimedata=crimedata, method=method, valtime=valtime)
+    unlinkedPairs=makeUnlinked(X=X, crimedata=crimedata, method=method, valtime=valtime, samplepairs=samplepairs, m=m)
     linkedPairs['type']='linked'
     unlinkedPairs['type']='unlinked'
     allPairs=pd.concat([linkedPairs,unlinkedPairs],ignore_index=True)
+    allPairs=allPairs.drop_duplicates(keep='first').reset_index(drop=True)
     return allPairs
 
 
@@ -1321,7 +1264,7 @@ def makeSeriesData(crimedata, offenderTable, time='early'):
     return SeriesData
 
 
-def makeUnlinked(X, crimedata, method=1, valtime=365):
+def makeUnlinked(X, crimedata, method=1, valtime=365, samplepairs='random', m=40):
     """
     GGenerates a sample of indices of unlinked crime pairs.
 
@@ -1333,6 +1276,8 @@ def makeUnlinked(X, crimedata, method=1, valtime=365):
     crimedata : [DataFrame] dataframe of crime incidents.
     method : [int] method forms crimes groups: Method=1 (default) forms groups by finding the maximal connected offender subgraph. Method=2 forms groups from the unique group of co-offenders. Method=3 forms from groups from offenderIDs.
     valtime : [int] the threshold (in days) of allowable time distance (default valtime=365).
+    samplepairs : [str] the method of forming the unlinked crime pairs: 'random' randomly (default) or 'full' a complete set.
+    m : [int] the number of samples from each crime group for unlinked pairs (default m=40)
 
     Returns
     ----------
@@ -1343,58 +1288,47 @@ def makeUnlinked(X, crimedata, method=1, valtime=365):
     To form the unlinked crime pairs, crime groups are identified as the maximal connected offender subgraphs. Then indices are drawn from each crime group (with replacment) and paired with crimes from other crime groups according to weights that ensure that large groups don't give the most events.
     """
     xCG=makeGroups(X, method=method)
-    CG=xCG['cl']
-    nCG=len(CG.value_counts())
+    nCG=xCG['cl'].nunique()
     nCrimes = xCG['cl'].value_counts().rename_axis('cl').reset_index(name='Count')
-    Y=pd.DataFrame({'crimeID':X['crimeID'],'CG':xCG['cl'],'TIME':X['TIME']})
+    Y = pd.concat([X[['crimeID', 'TIME']].reset_index(drop=True), xCG['cl']], axis=1)
+    Y=Y.rename(columns={"cl": "CG"})
     Y = pd.merge(Y, nCrimes, left_on=['CG'], right_on=['cl'], how='left')
     Y.drop(['cl'], axis='columns', inplace=True)
     Y['wt']=(1/(Y['Count']*nCG))
     Y.drop(['Count'], axis='columns', inplace=True)
-    def combinator(B):
-        comb=list(combinations_with_replacement(B, 2))
-        return comb
-    def pairwiseUCun(object):
-        YUnique=[]
-        Y_df  = pd.DataFrame(columns = ['i1', 'i2'])
-        for i in range(len(object)-10):
-            Yd=object[i:].drop_duplicates('CG',keep='first')
-            Yd=pd.DataFrame({'crimeID':Yd['crimeID']})
-            Yv=np.array(Yd.apply(combinator))
-            XX=np.concatenate(Yv)
-            Ydf1=pd.DataFrame({'i1':[i[0] for i in XX],'i2':[i[1] for i in XX],})
-            YUnique.append(Ydf1)
-        my_df = pd.concat([pd.DataFrame(x) for x in YUnique],ignore_index=True)
-        Yser=my_df.reset_index(drop=True)
-        return Yser
-    YYY=pairwiseUCun(Y)
-    YYUnique=YYY.drop_duplicates()
-    YYUnique=YYUnique[YYUnique.i1 != YYUnique.i2]
-    for res in crimedata:
-        res=[]
-        for i in list(range(max(crimedata.index)+1)):
-            data=crimedata['DT.TO'][i]-crimedata['DT.FROM'][i]
-            res.append(crimedata['DT.TO'][i] - datetime.timedelta(days=(data.days/2)))
+    Y=Y.drop_duplicates(keep = 'first').reset_index(drop = True)
+    Y=Y.drop_duplicates(subset=['CG'], keep = 'first').reset_index(drop = True)
+    if samplepairs=='random':
+        YYY  = pd.DataFrame(columns = ['i1', 'i2'])
+        for i in range(nCG):
+            i1=pd.Series(Y['crimeID'][Y['CG']==i].values[0], index=np.arange(m))
+            i2=Y['crimeID'][Y['CG']!=i].sample(n=m,weights=Y['wt']).reset_index(drop=True)
+            Ydf1=pd.DataFrame({'i1':i1,'i2':i2})
+            YYY = pd.concat([YYY,Ydf1],ignore_index=True)
+    if samplepairs=='full':
+        YYY  = pd.DataFrame(columns = ['i1', 'i2'])
+        for i in range(len(Y)-10):
+            Yd=Y[i:].drop_duplicates('CG',keep='first')
+            nn=list(combinations(Yd['crimeID'], 2))
+            Ydf1=pd.DataFrame({'i1':[i[0] for i in nn],'i2':[i[1] for i in nn],})
+            YYY = pd.concat([YYY,Ydf1],ignore_index=True)
+            YYY=YYY.drop_duplicates(keep = 'first').reset_index(drop = True)
+    YYUnique=YYY[YYY.i1 != YYY.i2]
+    data=crimedata['DT.TO']-crimedata['DT.FROM']
+    dt=data.dt.days/2
+    res=crimedata['DT.TO'] - dt.map(datetime.timedelta)
     timeDf=pd.DataFrame({'crimeID':crimedata['crimeID'],'TIME':res})
     YYUnique = pd.merge(YYUnique,timeDf,left_on=['i1'], right_on=['crimeID'], how='left')
     YYUnique.drop(['crimeID'], axis='columns', inplace=True)
     YYUnique = pd.merge(YYUnique,timeDf,left_on=['i2'], right_on=['crimeID'], how='left')
     YYUnique.drop(['crimeID'], axis='columns', inplace=True)
-    for timeint in YYUnique:
-        timeint=[]
-        for i in list(range(max(YYUnique.index)+1)):
-            data=abs(YYUnique['TIME_y'][i]-YYUnique['TIME_x'][i])
-            timeint.append(data.days)
+    timeint=abs(YYUnique['TIME_y']-YYUnique['TIME_x']).dt.days
     YYUnique['val']=timeint
     YYUnique.drop(['TIME_x','TIME_y'], axis='columns', inplace=True)
     YYUnique = YYUnique.loc[YYUnique['val'] < valtime]
-    YYUnique = pd.merge(YYUnique,Y,left_on=['i2'], right_on=['crimeID'], how='left')
-    YYUnique.drop(['val','crimeID','CG','TIME'], axis='columns', inplace=True)
-    YYperc = [np.percentile(YYUnique['wt'], i) for i in [25, 50, 75]]
-    YYUniq = YYUnique.drop(YYUnique[(YYUnique['wt'] > YYperc[2])].index)
-    YYUn = YYUniq.drop(YYUniq[(YYUniq['wt'] < YYperc[0])].index)
-    YYUn['wt']=1
-    YYUndf = YYUn.drop_duplicates(subset = ['i1', 'i2'],keep = 'first').reset_index(drop = True)
+    YYUnique=YYUnique.rename({'val': 'wt'},axis=1)
+    YYUnique['wt']=1
+    YYUndf = YYUnique.drop_duplicates(keep = 'first').reset_index(drop = True)
     return YYUndf
 
 
@@ -1442,7 +1376,7 @@ def naiveBayes(data, var, partition='quantile', df=20, nbins=30):
 def naiveBayesfit(X, y, weights=None, partition='quantile', df=20, nbins=30):
     """
     Direct call to naive bayes classifier.
-    
+
     Parameters
     ----------
     X : [DataFrame] dataframe of the evidence variables of the crimes incident data.
@@ -1451,7 +1385,7 @@ def naiveBayesfit(X, y, weights=None, partition='quantile', df=20, nbins=30):
     partition : [str] one of 'width' (fixed width) or 'quantile' (default) binning.
     df : [int] the effective degrees of freedom for the variables density estimates (default df=20).
     nbins : [int] number of bins.
-    
+
     Returns
     ----------
     List of component bayes factors.
