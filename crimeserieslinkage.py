@@ -1163,7 +1163,7 @@ def makeLinked(X, crimedata, valtime=365):
                 res2.append(data.days)
         val=res2
         result['valTime']=val
-        new2 = result.loc[result['valTime'] < valtime2]
+        new2 = result.loc[result['valTime'] < valtime]
         new3=new2.groupby(new2['offenderID'],as_index=True).size()
         new4 = pd.DataFrame(new3, columns=['Freq'])
         new4['Var1'] = new4.index
