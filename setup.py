@@ -15,7 +15,6 @@ setup(
         'tqdm',
         'scipy',
         'sklearn',
-        'itertools',
         'igraph',
         'matplotlib',
         'datetime'
