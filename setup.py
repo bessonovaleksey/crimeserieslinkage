@@ -10,15 +10,15 @@ setup(
     author_email='bestallv@mail.ru',
     description='Statistical methods for identifying serial crimes and related offenders',
     install_requires=[
-        'numpy>=1.22.1',
-        'pandas>=1.5.1',
+        'numpy',
+        'pandas',
         'math',
         'tqdm',
-        'scipy>=1.7.3',
-        'sklearn>=1.3.0',
+        'scipy',
+        'sklearn',
         'itertools',
-        'igraph>=0.10.2',
-        'matplotlib>=3.5.1',
+        'igraph',
+        'matplotlib',
         'datetime'
     ],
 )
