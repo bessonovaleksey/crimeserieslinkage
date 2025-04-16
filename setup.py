@@ -8,12 +8,11 @@ setup(
     version='2.0',
     packages=find_packages(),
     url='https://github.com/bessonovaleksey/crimeserieslinkage.git',
-    packages=['crimeserieslinkage'],
     license='MIT',
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
     description='Statistical methods for identifying serial crimes and related offenders',
-    long_description=read_me_description,
+    long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",
