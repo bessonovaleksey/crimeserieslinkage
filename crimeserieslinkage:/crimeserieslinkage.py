@@ -3,7 +3,7 @@ Statistical methods for identifying serial crimes and related offenders
 
 Copyright (c) 2025, A.A. Bessonov (bestallv@mail.ru)
 
-version 0.1.1
+version 1.0
 
 Routines in this module:
 
