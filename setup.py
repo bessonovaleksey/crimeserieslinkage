@@ -24,7 +24,6 @@ setup(
         'scipy',
         'sklearn',
         'igraph',
-        'math',
         'matplotlib',
         'datetime'
     ],
