@@ -1,20 +1,18 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name='crimeserieslinkage',
-    version='2.1.0',
-    packages=find_packages(),
-    url='https://github.com/bessonovaleksey/crimeserieslinkage.git',
-    license='Apache Software License',
+    version='0.1.1',
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
+    description='Statistical methods for identifying serial crimes and related offenders',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    description='Statistical methods for identifying serial crimes and related offenders',
+    url='https://github.com/bessonovaleksey/crimeserieslinkage.git',
+    packages=['crimeserieslinkage'],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: Apache Software License',
-        'Operating System :: OS Independent',
     ],
     python_requires='>=3.6',
     install_requires=[
