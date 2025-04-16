@@ -9,11 +9,6 @@ setup(
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
     description='Statistical methods for identifying serial crimes and related offenders',
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: Apache Software License",
-        "Operating System :: OS Independent",
-    ],
     install_requires=[
         'numpy',
         'pandas',
