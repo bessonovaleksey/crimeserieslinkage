@@ -22,7 +22,7 @@ setup(
         'pandas',
         'tqdm',
         'scipy',
-        'sklearn',
+        'scikit-learn',
         'igraph',
         'matplotlib',
         'datetime'
