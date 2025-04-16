@@ -24,6 +24,7 @@ setup(
         'pandas',
         'tqdm',
         'scipy',
+        'math',
         'sklearn',
         'igraph',
         'matplotlib',
