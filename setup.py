@@ -8,7 +8,15 @@ setup(
     license='Apache Software License',
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     description='Statistical methods for identifying serial crimes and related offenders',
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: OS Independent',
+    ],
+    python_requires='>=3.6',
     install_requires=[
         'numpy',
         'pandas',
@@ -16,6 +24,7 @@ setup(
         'scipy',
         'sklearn',
         'igraph',
+        'math',
         'matplotlib',
         'datetime'
     ],
