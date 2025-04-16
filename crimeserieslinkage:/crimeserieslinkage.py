@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Statistical methods for identifying serial crimes and related offenders
 
