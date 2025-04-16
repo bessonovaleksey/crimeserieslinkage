@@ -1,8 +1,5 @@
 from setuptools import setup, find_packages
 
-with open('README.md', 'r', encoding='utf-8') as f:
-    long_description = f.read()
-
 setup(
     name='crimeserieslinkage',
     version='2.1.0',
@@ -12,8 +9,6 @@ setup(
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
     description='Statistical methods for identifying serial crimes and related offenders',
-    long_description=long_description,
-    long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
