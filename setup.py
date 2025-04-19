@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='crimeserieslinkage',
-    version='1.0',
+    version='1.1',
     author='Aleksey A. Bessonov',
     author_email='bestallv@mail.ru',
     description='Statistical methods for identifying serial crimes and related offenders',
