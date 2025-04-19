@@ -3,7 +3,7 @@ Statistical methods for identifying serial crimes and related offenders
 
 Copyright (c) 2025, A.A. Bessonov (bestallv@mail.ru)
 
-version 1.0
+version 1.1
 
 Routines in this module:
 
@@ -94,6 +94,7 @@ from sklearn.model_selection import train_test_split
 from scipy.fft import fft, ifftn
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import KFold, GridSearchCV
+from typing import List
 
 __all__ = ['bayes_prob', 'bayesPairs', 'cat_levels', 'clusterPath', 'compare_categorical',
            'compare_numeric', 'compare_spatial', 'compareСrimes', 'comparetemporal',
