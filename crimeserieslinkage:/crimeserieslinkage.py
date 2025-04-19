@@ -3,7 +3,7 @@ Statistical methods for identifying serial crimes and related offenders
 
 Copyright (c) 2025, A.A. Bessonov (bestallv@mail.ru)
 
-version 1.1
+version 1.1.0
 
 Routines in this module:
 
@@ -2481,7 +2481,7 @@ def predictGB(X, varlist, gB):
     crimeIDs=set(X['crimeID'])
     allPairs=pd.DataFrame(list(combinations(crimeIDs, 2)),columns=['i1', 'i2'])
     A=compareСrimes(allPairs,X,varlist=varlist)
-    A1=A[A.columns[3:]]
+    A1=A[A.columns[2:]]
     res2=gb.predict_proba(A1)
     Result=A[A.columns[0:2]]
     res3=pd.DataFrame({'link':res2[:, 1]})
